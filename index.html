@@ -25,6 +25,11 @@
       --node-end:  #f43f5e;
       --node-visited:#312e81;
       --node-path: #fbbf24;
+      /* Animation intermediate colors — kept here so theme changes stay in one place */
+      --anim-wall-flash:   #4b5563;
+      --anim-visited-dark: #1e1b4b;
+      --anim-visited-mid:  #4338ca;
+      --anim-path-dark:    #78350f;
     }
     html, body { height: 100%; }
     body {
@@ -231,19 +236,19 @@
     }
 
     @keyframes wallPop {
-      0%   { transform: scale(0.5); background: #4b5563; }
+      0%   { transform: scale(0.5); background: var(--anim-wall-flash); }
       60%  { transform: scale(1.15); }
       100% { transform: scale(1); background: var(--node-wall); }
     }
     @keyframes visitedPulse {
-      0%   { background: #1e1b4b; transform: scale(0.85); }
-      50%  { background: #4338ca; transform: scale(1.05); }
-      100% { background: var(--node-visited); transform: scale(1); }
+      0%   { background: var(--anim-visited-dark); transform: scale(0.85); }
+      50%  { background: var(--anim-visited-mid);  transform: scale(1.05); }
+      100% { background: var(--node-visited);      transform: scale(1); }
     }
     @keyframes pathGlow {
-      0%   { background: #78350f; transform: scale(0.9); }
-      60%  { background: #f59e0b; transform: scale(1.15); }
-      100% { background: var(--node-path); transform: scale(1); }
+      0%   { background: var(--anim-path-dark); transform: scale(0.9); }
+      60%  { background: var(--warn);           transform: scale(1.15); }
+      100% { background: var(--node-path);      transform: scale(1); }
     }
 
     /* ── Legend ── */
@@ -567,7 +572,9 @@ window.addEventListener('touchend', () => { mouseDown = false; dragging = null; 
    ALGORITHMS
 ═══════════════════════════════════════════════════ */
 
-// Binary min-heap — O(log n) push/pop, replaces O(n log n) array.sort()
+// Binary min-heap — O(log n) push/pop.
+// Replaces the previous array.sort() inside the while loop, which was
+// O(n² log n) overall (sort called once per node popped).
 class MinHeap {
   constructor(compareFn) { this.data = []; this.compare = compareFn; }
   get size() { return this.data.length; }
@@ -603,10 +610,11 @@ class MinHeap {
   }
 }
 
+const DIRS = Object.freeze([[-1,0],[1,0],[0,-1],[0,1]]);
+
 function getNeighbors(node) {
-  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
   const out = [];
-  for (const [dr, dc] of dirs) {
+  for (const [dr, dc] of DIRS) {
     const r = node.row + dr, c = node.col + dc;
     if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !grid[r][c].isWall)
       out.push(grid[r][c]);
@@ -802,17 +810,17 @@ function divide(rStart, cStart, rEnd, cEnd) {
   const horizontal = height > width ? true : (width > height ? false : Math.random() < 0.5);
 
   if (horizontal) {
-    // Draw horizontal wall with one passage
+    // Draw horizontal wall with one passage (uniform random across full width)
     const wallRow = rStart + 1 + 2 * Math.floor(Math.random() * Math.floor(height / 2));
-    const passCol = cStart + 2 * Math.floor(Math.random() * Math.ceil(width / 2));
+    const passCol = cStart + Math.floor(Math.random() * (width + 1));
     for (let c = cStart; c <= cEnd; c++)
       if (c !== passCol) grid[wallRow][c].isWall = true;
     divide(rStart, cStart, wallRow - 1, cEnd);
     divide(wallRow + 1, cStart, rEnd, cEnd);
   } else {
-    // Draw vertical wall with one passage
+    // Draw vertical wall with one passage (uniform random across full height)
     const wallCol = cStart + 1 + 2 * Math.floor(Math.random() * Math.floor(width / 2));
-    const passRow = rStart + 2 * Math.floor(Math.random() * Math.ceil(height / 2));
+    const passRow = rStart + Math.floor(Math.random() * (height + 1));
     for (let r = rStart; r <= rEnd; r++)
       if (r !== passRow) grid[r][wallCol].isWall = true;
     divide(rStart, cStart, rEnd, wallCol - 1);
