@@ -179,8 +179,8 @@
       touch-action: none;
     }
     .cell {
-      width: 26px;
-      height: 26px;
+      width: var(--cell-size, 26px);
+      height: var(--cell-size, 26px);
       background: var(--node-empty);
       cursor: pointer;
       transition: background 0.08s, transform 0.08s;
@@ -274,7 +274,6 @@
     @media (max-width: 600px) {
       header { padding: 10px 12px; gap: 8px; }
       .logo { font-size: 1rem; }
-      .cell { width: 20px; height: 20px; }
       button { padding: 5px 10px; font-size: 0.78rem; }
     }
   </style>
@@ -405,30 +404,24 @@ function cellEl(r, c) {
   return cellEls[r][c];
 }
 
+function applyCellClass(el, r, c) {
+  el.className = 'cell';
+  if (r === startNode[0] && c === startNode[1])      el.classList.add('start');
+  else if (r === endNode[0] && c === endNode[1])     el.classList.add('end');
+  else if (grid[r][c].isWall)                        el.classList.add('wall');
+}
+
 function renderAll() {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const el = cellEl(r, c);
-      el.className = 'cell';
-      const n = grid[r][c];
-      if (r === startNode[0] && c === startNode[1]) el.classList.add('start');
-      else if (r === endNode[0] && c === endNode[1]) el.classList.add('end');
-      else if (n.isWall) el.classList.add('wall');
-    }
-  }
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      applyCellClass(cellEl(r, c), r, c);
 }
 
 function clearPath() {
   cancelAnimations();
   resetNodeCosts();
   const cells = gridEl.querySelectorAll('.visited, .path');
-  cells.forEach(el => {
-    const r = +el.dataset.r, c = +el.dataset.c;
-    el.className = 'cell';
-    if (r === startNode[0] && c === startNode[1]) el.classList.add('start');
-    else if (r === endNode[0] && c === endNode[1]) el.classList.add('end');
-    else if (grid[r][c].isWall) el.classList.add('wall');
-  });
+  cells.forEach(el => applyCellClass(el, +el.dataset.r, +el.dataset.c));
   statVisited.textContent = '0';
   statPath.textContent = '—';
   setStatus('Ready');
@@ -531,11 +524,7 @@ function moveDraggable(r, c) {
 }
 
 function renderCell(r, c) {
-  const el = cellEl(r, c);
-  el.className = 'cell';
-  if (r === startNode[0] && c === startNode[1]) el.classList.add('start');
-  else if (r === endNode[0] && c === endNode[1]) el.classList.add('end');
-  else if (grid[r][c].isWall) el.classList.add('wall');
+  applyCellClass(cellEl(r, c), r, c);
 }
 
 // Mouse events
@@ -865,6 +854,28 @@ btnMaze.addEventListener('click', generateMaze);
 /* ═══════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════ */
+
+// Compute the largest square cell that fits the viewport without scrolling.
+// Sets --cell-size so CSS adapts automatically; rebuilds DOM if size changes.
+function updateCellSize() {
+  const headerH  = document.querySelector('header').offsetHeight;
+  const statusH  = document.getElementById('statusBar').offsetHeight;
+  const legendH  = document.getElementById('legend').offsetHeight;
+  const availW   = window.innerWidth  - 34;          // 16px padding + 1px border × 2
+  const availH   = window.innerHeight - headerH - statusH - legendH - 34;
+  const byWidth  = Math.floor(availW / COLS);
+  const byHeight = Math.floor(availH / ROWS);
+  const size     = Math.max(10, Math.min(26, byWidth, byHeight));
+  document.documentElement.style.setProperty('--cell-size', size + 'px');
+}
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(updateCellSize, 120);
+});
+
+updateCellSize();
 initGrid();
 buildDOM();
 setStatus('Ready — draw walls, then click Run');
