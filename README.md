@@ -6,6 +6,18 @@ An interactive pathfinding algorithm visualizer built as a single `index.html` â
 
 ---
 
+## Screenshots
+
+| Empty grid | Generated maze |
+|:---:|:---:|
+| ![Empty grid](screenshots/01-empty.png) | ![Generated maze](screenshots/02-maze.png) |
+
+| A\* shortest path result |
+|:---:|
+| ![A* path](screenshots/03-path.png) |
+
+---
+
 ## How to Run
 
 ```bash
