@@ -331,10 +331,13 @@ const ROWS = 21;
 const COLS = 45;
 
 let grid = [];          // 2D array of node objects
+let cellEls = [];       // 2D array of cached DOM elements (avoids O(n) querySelector)
 let startNode = [5, 5];
 let endNode   = [15, 39];
 let isRunning = false;
 let animationTimeouts = [];
+
+const ALGO_NAMES = { astar: 'A*', dijkstra: 'Dijkstra', bfs: 'BFS' };
 
 // Node factory
 function makeNode(row, col) {
@@ -383,12 +386,15 @@ const statStatus   = document.getElementById('statStatus');
 function buildDOM() {
   gridEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
   gridEl.innerHTML = '';
+  cellEls = [];
   for (let r = 0; r < ROWS; r++) {
+    cellEls[r] = [];
     for (let c = 0; c < COLS; c++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.r = r;
       cell.dataset.c = c;
+      cellEls[r][c] = cell;
       gridEl.appendChild(cell);
     }
   }
@@ -396,7 +402,7 @@ function buildDOM() {
 }
 
 function cellEl(r, c) {
-  return gridEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  return cellEls[r][c];
 }
 
 function renderAll() {
@@ -571,6 +577,43 @@ window.addEventListener('touchend', () => { mouseDown = false; dragging = null; 
 /* ═══════════════════════════════════════════════════
    ALGORITHMS
 ═══════════════════════════════════════════════════ */
+
+// Binary min-heap — O(log n) push/pop, replaces O(n log n) array.sort()
+class MinHeap {
+  constructor(compareFn) { this.data = []; this.compare = compareFn; }
+  get size() { return this.data.length; }
+  push(item) {
+    this.data.push(item);
+    this._up(this.data.length - 1);
+  }
+  pop() {
+    const top = this.data[0];
+    const last = this.data.pop();
+    if (this.data.length) { this.data[0] = last; this._down(0); }
+    return top;
+  }
+  _up(i) {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.compare(this.data[i], this.data[p]) < 0) {
+        [this.data[i], this.data[p]] = [this.data[p], this.data[i]];
+        i = p;
+      } else break;
+    }
+  }
+  _down(i) {
+    const n = this.data.length;
+    while (true) {
+      let s = i, l = 2*i+1, r = 2*i+2;
+      if (l < n && this.compare(this.data[l], this.data[s]) < 0) s = l;
+      if (r < n && this.compare(this.data[r], this.data[s]) < 0) s = r;
+      if (s === i) break;
+      [this.data[i], this.data[s]] = [this.data[s], this.data[i]];
+      i = s;
+    }
+  }
+}
+
 function getNeighbors(node) {
   const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
   const out = [];
@@ -595,13 +638,13 @@ function runAstar() {
   start.hCost = heuristic(start, end);
   start.fCost = start.hCost;
 
-  const open   = [start];
-  const closed = new Set();
+  const open   = new MinHeap((a, b) => a.fCost - b.fCost || a.hCost - b.hCost);
+  open.push(start);
+  const closed  = new Set();
   const visited = [];
 
-  while (open.length) {
-    open.sort((a, b) => a.fCost - b.fCost || a.hCost - b.hCost);
-    const current = open.shift();
+  while (open.size) {
+    const current = open.pop();
     if (closed.has(current)) continue;
     closed.add(current);
     visited.push(current);
@@ -629,17 +672,12 @@ function runDijkstra() {
   const end   = grid[endNode[0]][endNode[1]];
   start.dist = 0;
 
-  const unvisited = [];
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      if (!grid[r][c].isWall) unvisited.push(grid[r][c]);
-
+  const pq      = new MinHeap((a, b) => a.dist - b.dist);
+  pq.push(start);
   const visited = [];
 
-  while (unvisited.length) {
-    unvisited.sort((a, b) => a.dist - b.dist);
-    const current = unvisited.shift();
-    if (current.dist === Infinity) break;
+  while (pq.size) {
+    const current = pq.pop();
     if (current.isVisited) continue;
     current.isVisited = true;
     visited.push(current);
@@ -649,7 +687,7 @@ function runDijkstra() {
     for (const nb of getNeighbors(current)) {
       if (nb.isVisited) continue;
       const d = current.dist + 1;
-      if (d < nb.dist) { nb.dist = d; nb.prev = current; }
+      if (d < nb.dist) { nb.dist = d; nb.prev = current; pq.push(nb); }
     }
   }
   return { visited, path: [] };
@@ -660,11 +698,12 @@ function runBFS() {
   const start = grid[startNode[0]][startNode[1]];
   const end   = grid[endNode[0]][endNode[1]];
   const queue = [start];
+  let head = 0;                // index pointer — avoids O(n) Array.shift()
   const visited = [];
   const seen = new Set([start]);
 
-  while (queue.length) {
-    const current = queue.shift();
+  while (head < queue.length) {
+    const current = queue[head++];
     visited.push(current);
 
     if (current === end) return { visited, path: buildPath(end) };
@@ -683,8 +722,8 @@ function runBFS() {
 function buildPath(end) {
   const path = [];
   let cur = end;
-  while (cur) { path.unshift(cur); cur = cur.prev; }
-  return path;
+  while (cur) { path.push(cur); cur = cur.prev; }
+  return path.reverse();  // push+reverse is O(n) vs unshift's O(n²)
 }
 
 /* ═══════════════════════════════════════════════════
@@ -695,16 +734,17 @@ function animate(visited, path) {
   let t = 0;
   const [sr, sc] = startNode;
   const [er, ec] = endNode;
+  let displayCount = 0;  // separate counter so start/end skips don't inflate the number
 
   for (let i = 0; i < visited.length; i++) {
     const node = visited[i];
     if ((node.row === sr && node.col === sc) ||
         (node.row === er && node.col === ec)) continue;
 
+    const count = ++displayCount;
     animationTimeouts.push(setTimeout(() => {
-      const el = cellEl(node.row, node.col);
-      el.className = 'cell visited';
-      statVisited.textContent = i + 1;
+      cellEl(node.row, node.col).className = 'cell visited';
+      statVisited.textContent = count;
     }, t));
     t += delay;
   }
@@ -737,8 +777,7 @@ function animatePath(path, delay) {
 
   animationTimeouts.push(setTimeout(() => {
     statPath.textContent = path.length - 1;
-    const algoNames = { astar: 'A*', dijkstra: 'Dijkstra', bfs: 'BFS' };
-    setStatus(`${algoNames[algoSelect.value]} finished — path: ${path.length - 1} cells`);
+    setStatus(`${ALGO_NAMES[algoSelect.value]} finished — path: ${path.length - 1} cells`);
   }, path.length * Math.max(delay * 3, 30)));
 }
 
@@ -815,8 +854,7 @@ btnRun.addEventListener('click', () => {
     return;
   }
 
-  const algoNames = { astar: 'A*', dijkstra: 'Dijkstra', bfs: 'BFS' };
-  setStatus(`Running ${algoNames[algo]}...`);
+  setStatus(`Running ${ALGO_NAMES[algo]}...`);
   animate(result.visited, result.path);
 });
 

@@ -4,8 +4,6 @@ An interactive pathfinding algorithm visualizer built as a single `index.html` â
 
 > **Live demo:** open `index.html` in any modern browser.
 
-![screenshot placeholder](screenshot.png)
-
 ---
 
 ## How to Run
