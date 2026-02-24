@@ -2,7 +2,7 @@
 
 An interactive pathfinding algorithm visualizer built as a single `index.html` — no build step, no dependencies.
 
-> **Live demo:** open `index.html` in any modern browser.
+> **Live demo:** [tbarak2.github.io/pathfinding-visualizer](https://tbarak2.github.io/pathfinding-visualizer/)
 
 ---
 
