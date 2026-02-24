@@ -855,14 +855,15 @@ btnMaze.addEventListener('click', generateMaze);
    INIT
 ═══════════════════════════════════════════════════ */
 
-// Compute the largest square cell that fits the viewport without scrolling.
-// Sets --cell-size so CSS adapts automatically; rebuilds DOM if size changes.
+// Compute the largest square cell that fits the viewport without scrolling
+// and set --cell-size so all cells reflow via CSS automatically.
 function updateCellSize() {
+  const GAP      = 1;  // matches gap: 1px on #grid
   const headerH  = document.querySelector('header').offsetHeight;
   const statusH  = document.getElementById('statusBar').offsetHeight;
   const legendH  = document.getElementById('legend').offsetHeight;
-  const availW   = window.innerWidth  - 34;          // 16px padding + 1px border × 2
-  const availH   = window.innerHeight - headerH - statusH - legendH - 34;
+  const availW   = window.innerWidth  - 34 - (COLS - 1) * GAP;  // 34 = padding(16×2) + border(1×2)
+  const availH   = window.innerHeight - headerH - statusH - legendH - 34 - (ROWS - 1) * GAP;
   const byWidth  = Math.floor(availW / COLS);
   const byHeight = Math.floor(availH / ROWS);
   const size     = Math.max(10, Math.min(26, byWidth, byHeight));
